@@ -69,16 +69,18 @@ class BaGPipeLinuxBridgeNeutronAgentRPC(LinuxBridgeNeutronAgentRPC):
         super(BaGPipeLinuxBridgeNeutronAgentRPC, self).__init__(*args,
                                                                 **kwargs)
 
+    def setup_linux_bridge(self, bridge_mappings, interface_mappings):
+        self.br_mgr = LinuxBridgeManagerBaGPipeL2(bridge_mappings,
+                                                  interface_mappings)
+
         self.bgp_agent = (bagpipe_bgp_agent.BaGPipeBGPAgent(
             constants.AGENT_TYPE_LINUXBRIDGE,
             br_mgr=self.br_mgr)
         )
 
+    def setup_rpc(self, physical_interfaces):
+	super(BaGPipeLinuxBridgeNeutronAgentRPC, self).setup_rpc(physical_interfaces)
         self.bgp_agent.setup_rpc(self.endpoints, self.connection, self.topic)
-
-    def setup_linux_bridge(self, bridge_mappings, interface_mappings):
-        self.br_mgr = LinuxBridgeManagerBaGPipeL2(bridge_mappings,
-                                                  interface_mappings)
 
 
 def main():
