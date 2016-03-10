@@ -45,6 +45,11 @@ from networking_bagpipe.rpc.client import topics_BAGPIPE
 from networking_bagpipe.agent.bgpvpn import rpc_agent as bgpvpn_agent_rpc
 from networking_bagpipe.agent.bgpvpn.rpc_client import topics_BAGPIPE_BGPVPN
 
+from networking_bagpipe.agent.gbp_servicechain import (
+    rpc_agent as gbp_sc_agent_rpc)
+from networking_bagpipe.agent.gbp_servicechain.rpc_client import (
+    topics_BAGPIPE_GBP_SC)
+
 from neutron.plugins.ml2.drivers.openvswitch.agent.common import constants
 
 LOG = logging.getLogger(__name__)
@@ -53,7 +58,9 @@ DEFAULT_GATEWAY_MAC = "00:00:5e:00:43:64"
 
 BAGPIPE_NOTIFIER = 'bagpipe'
 BGPVPN_NOTIFIER = 'bgpvpn'
-BAGPIPE_NOTIFIERS = [BAGPIPE_NOTIFIER, BGPVPN_NOTIFIER]
+GBP_SERVICECHAIN_NOTIFIER = 'gbp_servicechain'
+BAGPIPE_NOTIFIERS = [BAGPIPE_NOTIFIER, BGPVPN_NOTIFIER,
+                     GBP_SERVICECHAIN_NOTIFIER]
 
 EVPN = 'evpn'
 IPVPN = 'ipvpn'
@@ -158,7 +165,8 @@ class HTTPClientBase(object):
 
 class BaGPipeBGPAgent(HTTPClientBase,
                       bagpipe_agent_rpc.BaGPipeAgentRpcCallBackMixin,
-                      bgpvpn_agent_rpc.BGPVPNAgentRpcCallBackMixin
+                      bgpvpn_agent_rpc.BGPVPNAgentRpcCallBackMixin,
+                      gbp_sc_agent_rpc.GBPServiceChainAgentRpcCallBackMixin
                       ):
     """Implements a BaGPipe-BGP REST client"""
 
@@ -724,7 +732,8 @@ class BaGPipeBGPAgent(HTTPClientBase,
 
         prefix = main_topic
         topic_details = [[topics_BAGPIPE, topics.UPDATE, cfg.CONF.host],
-                         [topics_BAGPIPE_BGPVPN, topics.UPDATE, cfg.CONF.host]
+                         [topics_BAGPIPE_BGPVPN, topics.UPDATE, cfg.CONF.host],
+                         [topics_BAGPIPE_GBP_SC, topics.UPDATE, cfg.CONF.host]
                          ]
 
         # what is below is a copy-paste from rpc.create_consumers
@@ -945,3 +954,63 @@ class BaGPipeBGPAgent(HTTPClientBase,
             finally:
                 self._remove_local_port_details_for_index(net_uuid, index,
                                                           BGPVPN_NOTIFIER)
+
+    # Group Based Policy Service Chain callbacks
+    # ------------------------------------------
+    def gbp_servicechain_port_attach(self, context, port_gbp_sc_info):
+        LOG.debug("gbp_servicechain_port_attach received with port info: %s",
+                  port_gbp_sc_info)
+        port_id = port_gbp_sc_info.pop('id')
+        net_uuid = port_gbp_sc_info.pop('network_id')
+
+        # Add ARP responder entry for default gateway in OVS tunnel bridge in
+        # OVS agent case
+        if self.agent_type == q_const.AGENT_TYPE_OVS:
+            lvm = self.local_vlan_map[net_uuid]
+            self.setup_entry_for_arp_reply(self.tun_br, 'add', lvm.vlan,
+                                           DEFAULT_GATEWAY_MAC,
+                                           port_gbp_sc_info['gateway_ip'])
+
+        # Add/Update port GBP Service Chain details in registered attachments
+        # list
+        port_details = self._add_local_port_details(GBP_SERVICECHAIN_NOTIFIER,
+                                                    net_uuid,
+                                                    port_id,
+                                                    port_gbp_sc_info)
+
+        # Attach port on BaGPipe BGP component
+        LOG.debug("Attaching GBP Service Chain port %s on bagpipe-bgp "
+                  "with details %s" %
+                  (port_details['local_port']['linuxif'], port_details))
+
+        self._do_local_port_plug(port_details)
+
+    def gbp_servicechain_port_detach(self, context, port_gbp_sc_info):
+        LOG.debug("gbp_servicechain_port_detach received with port info: %s",
+                  port_gbp_sc_info)
+        port_id = port_gbp_sc_info['id']
+        net_uuid = port_gbp_sc_info['network_id']
+
+        LOG.debug("Detaching GBP Service Chain port %s from bagpipe-bgp",
+                  port_id)
+
+        # Retrieve local port details index in BGP registered attachment list
+        try:
+            index, details = self._get_reg_attachment_for_port(net_uuid,
+                                                               port_id)
+        except BGPAttachmentNotFound as e:
+            LOG.error("bagpipe-bgp agent inconsistent for GBP Service Chain "
+                      "or updated with another detach: %s", str(e))
+        else:
+            try:
+                self._do_local_port_unplug(
+                    details,
+                    notifiers=[GBP_SERVICECHAIN_NOTIFIER]
+                )
+            except BaGPipeBGPException as e:
+                LOG.error("Can't detach GBP Service Chain port from "
+                          "bagpipe-bgp %s", str(e))
+            finally:
+                self._remove_local_port_details_for_index(
+                    net_uuid, index, GBP_SERVICECHAIN_NOTIFIER
+                )
