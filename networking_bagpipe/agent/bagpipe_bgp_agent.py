@@ -263,13 +263,14 @@ class BaGPipeBGPAgent(HTTPClientBase,
 
         index = -1
         details = None
-        for i, attachment in enumerate(self.reg_attachments[network_id]):
-            if (attachment['port_id'] == local_port_id):
-                LOG.debug("Local port details found at index %s: %s" %
-                          (i, attachment))
-                index = i
-                details = attachment
-                break
+        if network_id in self.reg_attachments:
+            for i, attachment in enumerate(self.reg_attachments[network_id]):
+                if (attachment['port_id'] == local_port_id):
+                    LOG.debug("Local port details found at index %s: %s" %
+                              (i, attachment))
+                    index = i
+                    details = attachment
+                    break
 
         if index == -1:
             LOG.info("No details found for local port %s", local_port_id)
@@ -320,21 +321,23 @@ class BaGPipeBGPAgent(HTTPClientBase,
                 'import_rt' in local_port_details[notifier][vpn_type] and
                 'export_rt' in local_port_details[notifier][vpn_type]):
             notifier_details = local_port_details[notifier][vpn_type]
-            LOG.debug("Notifier %s details: %s" % (vpn_type,
-                                                   notifier_details))
+            LOG.debug("Notifier %s VPN type %s details: %s" %
+                      (notifier, vpn_type, notifier_details))
 
             if ((vpn_type, notifier_details['ip_address']) in
-                    vpntype_ipaddress2details):
+                    vpntype_ipaddress2details and
+                    notifier in vpntype_ipaddress2details[
+                        (vpn_type, notifier_details['ip_address'])]):
                 plug_details = vpntype_ipaddress2details[
                     (vpn_type, notifier_details['ip_address'])
-                    ]
+                    ][notifier]
 
                 plug_details['import_rt'] += notifier_details['import_rt']
                 plug_details['export_rt'] += notifier_details['export_rt']
 
                 vpntype_ipaddress2details[
                     (vpn_type, notifier_details['ip_address'])
-                    ].update(plug_details)
+                    ][notifier].update(plug_details)
             else:
                 plug_details = {
                     'vpn_type': vpn_type,
@@ -356,16 +359,23 @@ class BaGPipeBGPAgent(HTTPClientBase,
                 plug_details.update(self._copy_notifier_vpn_details(
                     notifier_details))
 
-                vpntype_ipaddress2details[(vpn_type,
-                                           notifier_details['ip_address'])
-                                          ] = deepcopy(plug_details)
+                if ((vpn_type, notifier_details['ip_address']) in
+                    vpntype_ipaddress2details):
+                    vpntype_ipaddress2details[
+                        (vpn_type, notifier_details['ip_address'])
+                        ].update({notifier: deepcopy(plug_details)})
+                else:
+                    vpntype_ipaddress2details[
+                        (vpn_type, notifier_details['ip_address'])
+                        ] = {notifier: deepcopy(plug_details)}
 
             if 'static_routes' in notifier_details:
                 for static_route in notifier_details['static_routes']:
                     plug_details['ip_address'] = static_route
                     plug_details.update({'advertise_subnet': True})
                     vpntype_ipaddress2details[
-                        (vpn_type, static_route)] = deepcopy(plug_details)
+                        (vpn_type, static_route)
+                        ] = {notifier: deepcopy(plug_details)}
 
     def _get_local_port_plug_details(self, local_port_details, vpn_types=None,
                                      notifiers=None):
@@ -379,24 +389,35 @@ class BaGPipeBGPAgent(HTTPClientBase,
         plug_notifiers = notifiers if notifiers else BAGPIPE_NOTIFIERS
 
         for (vpn_type, notifier) in [
-                (x, y) for x in plug_types for y in plug_notifiers]:
+                (x, y) for x in VPN_TYPES for y in BAGPIPE_NOTIFIERS]:
             self._populate_vpntype_ipaddress2details(vpn_type,
                                                      notifier,
                                                      local_port_details,
                                                      vpntype_ipaddress2details)
 
-        LOG.debug('Local port (VPN type, IP address) map details %s' %
+        LOG.debug('All local port (VPN type, IP address) map details %s' %
                   vpntype_ipaddress2details)
 
         for (vpntype_ipaddress, plug_details) in (vpntype_ipaddress2details.
                                                   iteritems()):
-            if vpntype_ipaddress[0] in all_plug_details:
-                all_plug_details[vpntype_ipaddress[0]].append(plug_details)
-            else:
-                all_plug_details[vpntype_ipaddress[0]] = list([plug_details])
+            for (plug_type, plug_notifier) in [
+                    (x, y) for x in plug_types for y in plug_notifiers]:
+                if (plug_type == vpntype_ipaddress[0] and
+                        plug_notifier in plug_details):
+                    if (len(plug_details) == 1 or
+                        plug_notifiers == BAGPIPE_NOTIFIERS):
+                        if vpntype_ipaddress[0] in all_plug_details:
+                            all_plug_details[vpntype_ipaddress[0]].append(
+                                plug_details[plug_notifier]
+                            )
+                        else:
+                            all_plug_details[vpntype_ipaddress[0]] = (
+                                list([plug_details[plug_notifier]])
+                            )
 
-        LOG.debug('Local port %s details %s' % (local_port_details['port_id'],
-                                                all_plug_details))
+        LOG.debug('Local port %s details for VPN types %s and notifiers %s: %s'
+                  % (local_port_details['port_id'], plug_types, plug_notifiers,
+                     all_plug_details))
 
         return all_plug_details
 
