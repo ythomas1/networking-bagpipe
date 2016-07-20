@@ -312,7 +312,8 @@ class BaGPipeBGPAgent(HTTPClientBase,
                     'import_rt', 'export_rt']:
             notifier_copy[key] = notifier_details[key]
 
-        for optional in ['readvertise', 'attract_traffic']:
+        for optional in ['readvertise', 'attract_traffic',
+                         'lb_consistent_hash_order']:
             if optional in notifier_details:
                 notifier_copy[optional] = notifier_details[optional]
 
@@ -572,7 +573,20 @@ class BaGPipeBGPAgent(HTTPClientBase,
             gateway_ip: <PORT_GATEWAY>,
             evpn | ipvpn: {
                 import_rts: [<ASN:NN>],
-                export_rts: [<ASN:NN>]
+                export_rts: [<ASN:NN>],
+
+                # Optional parameters
+                readvertise: {
+                    from_rt: <ASN:NN>,
+                },
+                attract_traffic: {
+                    redirect_rt: [<ASN:NN>],
+                    classifier: {
+                        destinationPort: <PORT_RANGE>,
+                        protocol: <PROTOCOL_NAME>
+                    }
+                },
+                lb_consistent_hash_order: <INTEGER>
             }
         }
 
@@ -585,6 +599,19 @@ class BaGPipeBGPAgent(HTTPClientBase,
                 gateway_ip: <PORT_GATEWAY>,
                 import_rts: [<ASN:NN>],
                 export_rts: [<ASN:NN>]
+
+                # Optional parameters
+                readvertise: {
+                    from_rt: <ASN:NN>,
+                },
+                attract_traffic: {
+                    redirect_rt: [<ASN:NN>],
+                    classifier: {
+                        destinationPort: <PORT_RANGE>,
+                        protocol: <PROTOCOL_NAME>
+                    }
+                },
+                lb_consistent_hash_order: <INTEGER>
             }
         }
         """
@@ -642,7 +669,30 @@ class BaGPipeBGPAgent(HTTPClientBase,
                     import_rts: [<ASN:NN>, ...],
                     export_rts: [<ASN:NN>, ...]
                 }
+            },
+            gbp_servicechain: {
+                ipvpn: {
+                    mac_address: <PORT_MAC>,
+                    ip_address: <PORT_IP>,
+                    gateway_ip: <PORT_GATEWAY>,
+                    import_rts: [<ASN:NN>, ...],
+                    export_rts: [<ASN:NN>, ...],
+
+                    # Optional parameters
+                    readvertise: {
+                        from_rt: <ASN:NN>,
+                    },
+                    attract_traffic: {
+                        redirect_rt: [<ASN:NN>],
+                        classifier: {
+                            destinationPort: <PORT_RANGE>,
+                            protocol: <PROTOCOL_NAME>
+                        }
+                    },
+                    lb_consistent_hash_order: <INTEGER>
+                }
             }
+
         }
 
         and return formatted port details to notifier for plug/unplug action.
