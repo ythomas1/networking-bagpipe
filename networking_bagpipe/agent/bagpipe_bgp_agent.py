@@ -250,7 +250,7 @@ class BaGPipeBGPAgent(HTTPClientBase):
         for vpn_type in b_const.VPN_TYPES:
             attach_info = {}
 
-            for service in self.build_callbacks.keys():
+            for service in service_attach_info:
                 if vpn_type in service_attach_info[service]:
                     network_id = service_attach_info[service]['network_id']
                     service_info = service_attach_info[service]
@@ -263,7 +263,15 @@ class BaGPipeBGPAgent(HTTPClientBase):
                             local_port=service_info['local_port']
                         )
 
+                    if attach_info['gateway_ip'] is None:
+                        attach_info['gateway_ip'] = service_info['gateway_ip']
+
                     service_vpn_info = service_info[vpn_type]
+
+                    if 'vpn_instance_id' in service_vpn_info:
+                        attach_info['vpn_instance_id'] = (
+                            service_vpn_info['vpn_instance_id']
+                        )
 
                     if vpn_type not in attach_info:
                         attach_info.update(dict(vpn_type=vpn_type))
@@ -359,9 +367,11 @@ class BaGPipeBGPAgent(HTTPClientBase):
         for detach_vpn_type, detach_info in list(detach_infos.items()):
             if detach_vpn_type not in plug_details.keys():
                 network_id = detach_info.pop('network_id')
-                detach_info.update({'vpn_instance_id': '%s_%s' %
-                                    (network_id, detach_vpn_type),
-                                    'vpn_type': detach_vpn_type})
+                if 'vpn_instance_id' not in detach_info:
+                    detach_info.update({'vpn_instance_id': '%s_%s' %
+                                        (network_id, detach_vpn_type)})
+
+                detach_info.update({'vpn_type': detach_vpn_type})
 
                 self._check_evpn2ipvpn_info(detach_vpn_type, network_id,
                                             plug_details, detach_info)

@@ -1,4 +1,4 @@
-# Copyright (c) 2016 Orange.
+# Copyright (c) 2017 Orange.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -13,11 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db.migration.models import head
+from networking_bagpipe.objects.sfc import chain_hop
 
-# pylint: disable=unused-import
-import networking_bagpipe.driver.type_route_target  # noqa
-from networking_bagpipe.db import sfc_db  # noqa
+from neutron.tests.unit.objects import test_base
+from neutron.tests.unit import testlib_api
 
-def get_metadata():
-    return head.model_base.BASEV2.metadata
+
+class BaGPipeChainHopObjectTestCase(test_base.BaseObjectIfaceTestCase):
+
+    _test_class = chain_hop.BaGPipeChainHop
+
+
+class BaGPipeChainHopDbObjectTestCase(test_base.BaseDbObjectTestCase,
+                                      testlib_api.SqlTestCase):
+
+    _test_class = chain_hop.BaGPipeChainHop
