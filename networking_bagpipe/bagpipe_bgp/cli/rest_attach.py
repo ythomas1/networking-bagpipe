@@ -146,6 +146,9 @@ def main():
                       "'netns[:if]' to have an interface to a local network "
                       "namespace attached/detached "
                       "[with 'if' as the name of the interface to the netns]")
+    parser.add_option("--direction", dest="direction",
+                      help="local port direction (in | out | both) in VPN "
+                      "instance")
 
     parser.add_option("--rt", dest="route_targets",
                       help="route target [default: 64512:0] (can be "
@@ -334,6 +337,9 @@ def main():
 
             if options.ovs_vlan:
                 local_port['ovs']['vlan'] = options.ovs_vlan
+
+    if options.direction:
+        local_port['direction'] = options.direction
 
     if not options.mac:
         if options.network_type == const.IPVPN:

@@ -98,6 +98,8 @@ class AttachController(VPNManagerController):
                                     #   interface
                                     # - not needed/not used if 'evpn' plug
                                     #   is used
+            'direction': 'in' | 'out' | 'both' # specify local port traffic
+                                               # direction in VPN instance
             'ovs': {  # optional
                 # whether or not interface is already plugged into the
                 # OVS bridge:

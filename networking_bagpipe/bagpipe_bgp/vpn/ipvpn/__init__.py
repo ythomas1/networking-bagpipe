@@ -235,19 +235,21 @@ class VRF(vpn_instance.VPNInstance, lg.LookingGlassMixin):
                                              localport, advertise_subnet,
                                              lb_consistent_hash_order)
 
-        label = self.mac_2_localport_data[mac_address]['label']
-        rd = self.endpoint_2_rd[(mac_address, ip_address_prefix)]
-        for route in (self.readvertised |
-                      self._route_for_attract_static_dest_prefix(label, rd)):
-            self.log.debug("Re-advertising %s with this port as next hop",
-                           route.nlri)
-            self._advertise_route_or_default(route, label, rd,
-                                             lb_consistent_hash_order)
+        if localport.get('direction', 'both') != 'out':
+            label = self.mac_2_localport_data[mac_address]['label']
+            rd = self.endpoint_2_rd[(mac_address, ip_address_prefix)]
+            for route in (self.readvertised |
+                          self._route_for_attract_static_dest_prefix(label,
+                                                                     rd)):
+                self.log.debug("Re-advertising %s with this port as next hop",
+                               route.nlri)
+                self._advertise_route_or_default(route, label, rd,
+                                                 lb_consistent_hash_order)
 
-            if self.attract_traffic:
-                flow_route = self._route_for_redirect_prefix(
-                    route.nlri.cidr.prefix())
-                self._advertise_route(flow_route)
+                if self.attract_traffic:
+                    flow_route = self._route_for_redirect_prefix(
+                        route.nlri.cidr.prefix())
+                    self._advertise_route(flow_route)
 
     def vif_unplugged(self, mac_address, ip_address_prefix,
                       advertise_subnet=False,

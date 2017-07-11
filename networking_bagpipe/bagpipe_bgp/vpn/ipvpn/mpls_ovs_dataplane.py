@@ -495,20 +495,21 @@ class MPLSOVSVRFDataplane(dp_drivers.VPNInstanceDataplane):
                 '%soutput:%s' % (push_vlan_action_str, ovs_port_from_vm),
                 self.driver.input_table)
 
-        # Map incoming MPLS traffic going to the VM port
-        incoming_actions = ("%smod_dl_src:%s,mod_dl_dst:%s,output:%s" %
-                            (push_vlan_action_str, GATEWAY_MAC,
-                             mac_address, ovs_port_to_vm))
+        if localport.get('direction', 'both') != 'out':
+            # Map incoming MPLS traffic going to the VM port
+            incoming_actions = ("%smod_dl_src:%s,mod_dl_dst:%s,output:%s" %
+                                (push_vlan_action_str, GATEWAY_MAC,
+                                 mac_address, ovs_port_to_vm))
 
-        self._ovs_flow_add(self._match_mpls_in(label),
-                           "pop_mpls:0x0800,%s" % incoming_actions,
-                           self.driver.encap_in_table)
-
-        # additional incoming traffic rule for VXLAN
-        if self.driver.vxlan_encap:
-            self._ovs_flow_add(self._match_vxlan_in(label),
-                               incoming_actions,
+            self._ovs_flow_add(self._match_mpls_in(label),
+                               "pop_mpls:0x0800,%s" % incoming_actions,
                                self.driver.encap_in_table)
+
+            # additional incoming traffic rule for VXLAN
+            if self.driver.vxlan_encap:
+                self._ovs_flow_add(self._match_vxlan_in(label),
+                                   incoming_actions,
+                                   self.driver.encap_in_table)
 
         # Add OVS port number in list for local port plugged in VRF
         # FIXME: check check check, is linuxif the right key??

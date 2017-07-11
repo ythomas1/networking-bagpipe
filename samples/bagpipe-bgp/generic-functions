@@ -51,13 +51,13 @@ function clean_netns_all {
 }
 
 function clean_start {
-	r_both /etc/init.d/bagpipe-bgp start
+	r_both systemctl start bagpipe-bgp
 	if r_a 'test $(bagpipe-looking-glass summary vpn_instances_count) -ge 1'; then
-		r_a /etc/init.d/bagpipe-bgp restart
+		r_a systemctl restart bagpipe-bgp
 	fi
 
 	if r_b 'test $(bagpipe-looking-glass summary vpn_instances_count) -ge 1'; then
-		r_b /etc/init.d/bagpipe-bgp restart
+		r_b systemctl restart bagpipe-bgp
 	fi
 }
 
@@ -85,6 +85,6 @@ function clean_stop {
 	if (test $(r_b bagpipe-looking-glass summary received_routes_count) -ne 0); then
 		echo "warning: $hostB not cleaned up"
 	fi
-#	r_both /etc/init.d/bagpipe-bgp stop
+#	r_both systemctl stop bagpipe-bgp
 }
 

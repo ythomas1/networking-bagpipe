@@ -669,27 +669,31 @@ class VPNInstance(tracker_worker.TrackerWorker,
                 pdata["port_info"] = localport
                 pdata["lb_consistent_hash_order"] = lb_consistent_hash_order
 
-            endpoint_rd = self.manager.rd_allocator.get_new_rd(
-                "Route distinguisher for %s %d, interface %s, "
-                "endpoint %s/%s" % (self.instance_type, self.instance_id,
-                                    linuxif, mac_address,
-                                    ip_address_prefix)
-            )
-
-            rd = self.instance_rd if plen == 32 else endpoint_rd
-
             # Call driver to setup the dataplane for incoming traffic
             self.dataplane.vif_plugged(mac_address, ip_prefix,
                                        localport, pdata['label'])
 
-            self.log.info("Synthesizing and advertising BGP route for VIF %s "
-                          "endpoint (%s, %s/%d)", linuxif,
-                          mac_address, ip_prefix, plen)
-            route_entry = self.synthesize_vif_bgp_route(
-                mac_address, ip_prefix, plen,
-                pdata['label'], lb_consistent_hash_order, rd)
+            if localport.get('direction', 'both') != 'out':
+                endpoint_rd = self.manager.rd_allocator.get_new_rd(
+                    "Route distinguisher for %s %d, interface %s, "
+                    "endpoint %s/%s" % (self.instance_type, self.instance_id,
+                                        linuxif, mac_address,
+                                        ip_address_prefix)
+                )
 
-            self._advertise_route(route_entry)
+                rd = self.instance_rd if plen == 32 else endpoint_rd
+
+                self.log.info("Synthesizing and advertising BGP route for VIF "
+                              "%s endpoint (%s, %s/%d)", linuxif,
+                              mac_address, ip_prefix, plen)
+                route_entry = self.synthesize_vif_bgp_route(
+                    mac_address, ip_prefix, plen,
+                    pdata['label'], lb_consistent_hash_order, rd)
+
+                self._advertise_route(route_entry)
+
+                self.endpoint_2_rd[(mac_address,
+                                    ip_address_prefix)] = endpoint_rd
 
             if linuxif not in self.localport_2_endpoints:
                 self.localport_2_endpoints[linuxif] = list()
@@ -697,7 +701,6 @@ class VPNInstance(tracker_worker.TrackerWorker,
             self.localport_2_endpoints[linuxif].append(
                 {'mac': mac_address, 'ip': ip_address_prefix}
             )
-            self.endpoint_2_rd[(mac_address, ip_address_prefix)] = endpoint_rd
             self.mac_2_localport_data[mac_address] = pdata
 
             if ip_address_prefix not in self.ip_address_2_mac:
