@@ -73,6 +73,106 @@ class VPNManagerController(object):
 
 
 class AttachController(VPNManagerController):
+    """attach_localport parameters:
+
+    'vpn_instance_id: external VPN instance identifier (all ports with same
+                     vpn_instance_id will be plugged in the same VPN
+                     instance
+    'vpn_type': type of the VPN instance ('ipvpn' or 'evpn')
+    'import_rt': list of import Route Targets (or comma-separated string)
+    'export_rt': list of export Route Targets (or comma-separated string)
+    'gateway_ip': IP address of gateway for this VPN instance
+    'mac_address': MAC address of endpoint to connect to the VPN instance
+    'ip_address': IP/mask of endpoint to connect to the VPN instance
+    'advertise_subnet': optional, if set to True then VRF will advertise
+                        the whole subnet (defaults to False, readvertise
+                        ip_address as a singleton (/32)
+    'linuxbr': Name of a linux bridge to which the linuxif is already
+             plugged-in (optional)
+    'local_port': local port to plug to the VPN instance
+        should be a dict containing any of the following key,value pairs
+        {
+            'linuxif': 'tap456abc', # name of a linux interface
+                                    # - if OVS information is provided it
+                                    #   does not have to be an existing
+                                    #   interface
+                                    # - not needed/not used if 'evpn' plug
+                                    #   is used
+            'ovs': {  # optional
+                # whether or not interface is already plugged into the
+                # OVS bridge:
+                'plugged': True,
+                # name of a linux interface to be plugged into the OVS
+                # bridge (optional and ignored if port_number is
+                # provided):
+                'port_name': 'qvo456abc',
+                # OVS port number (optional if 'port_name' provided):
+                'port_number': '7',
+                # the VLAN id for VM traffic (optional)
+                'vlan': '42',
+                # optional specification of a distinct port to send
+                # traffic to the VM(only applies if a vlan is
+                # specified) :
+                'to_vm_port_number'
+                'to_vm_port_name'
+               },
+            'evpn': {  # for an ipvpn attachement...
+                 'id': 'xyz'  # specifies the vpn_instance_id of an evpn
+                              # that will be attached to the ipvpn
+                 'ovs_port_name': 'qvb456abc' # optional, if provided,
+                                              # and if ovs/port_name is
+                                              # also provided, then the
+                                              # interface name will be
+                                              # assumed as already plugged
+                                              # into the evpn
+                }
+        }
+        if local_port is not a list, it is assumed to be a name of a linux
+        interface (string)
+    'readvertise': {  # optional, used to re-advertise addresses...
+        'from_rt': [list of RTs]  # ...received on these RTs
+        'to_rt': [list of RTs] # ...toward these RTs
+    }
+    'attract_traffic': { # optional, will result in the VRF to attract
+                           traffic, matching the classifier, from any VRF
+                           importing redirection route target
+        'classifier': {
+            'sourcePrefix': IP/mask,
+            'destinationPrefix': IP/mask,
+            'sourcePort': Port number or port range,
+            'destinationPort': Port number or port range,
+            'protocol': IP protocol
+        },
+        'redirect_rts': [list of RTs] # used to:
+                                      # - re-advertise addresses received on
+                                      #   RTs specified in 'readvertise:
+                                      #   from_rt'
+                                      # - advertise 'static_destination_prefix'
+                                      # as FlowSpec routes with VRF-redirect to
+                                      # these RTs
+        'attract_to_rts': [list of RTs] # used to :
+                                        # - re-advertise a default route per
+                                        #   addresses received on RTs
+                                        #   specified in 'readvertise:from_rt'
+                                        # - advertise a default route for
+                                        #   'static_destination_prefix'
+                                        # toward these RTs (must be equal to
+                                        # 'readvertise: to_rt' if defined)
+        'static_destination_prefix': IP/mask # static destination prefix to
+                                             # advertise
+    }
+    'fallback': # (optional) if provided, on a VRF lookup miss,
+                # the MAC destination address will be
+                # rewritten to this MAC before being
+                # sent back where it came from
+                {
+                'src_mac': 'aa:bb:cc:dd:ee:ff'  # new source MAC
+                'dst_mac': 'aa:bb:cc:dd:ee:00'  # new destination MAC
+                'ovs_port_name': 'patch_foo'
+                'ovs_port_number': 4               # (unsupported yet)
+                'ovs_resubmit': '(<port>,<table>)' # (unsupported yet)
+    }
+    """
 
     @expose(generic=True)
     def index(self):

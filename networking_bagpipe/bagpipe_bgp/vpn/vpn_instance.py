@@ -35,7 +35,6 @@ from networking_bagpipe.bagpipe_bgp.engine import exa
 from networking_bagpipe.bagpipe_bgp.engine import flowspec
 from networking_bagpipe.bagpipe_bgp.engine import tracker_worker
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -332,11 +331,37 @@ class VPNInstance(tracker_worker.TrackerWorker,
             self.log.debug("readvertise not enabled")
             self.readvertise = False
 
-        if self.readvertise and attract_traffic:
+        if (attract_traffic and (self.readvertise or
+                                 attract_traffic.get('to_rt'))):
+            # Convert route target string to RouteTarget dictionary
+            attract_to_rts = attract_traffic.get('to_rt')
+
+            if attract_to_rts:
+                converted_to_rts = (
+                    utils.convert_route_targets(attract_to_rts)
+                )
+                if self.readvertise:
+                    if converted_to_rts != self.readvertise_to_rts:
+                        raise exc.APIException("'attract_traffic/to_rt' and "
+                                               "'readvertise/to_rt' require "
+                                               "to be equal")
+                else:
+                    self.readvertise_to_rts = converted_to_rts
+
+                try:
+                    self.attract_static_dest_prefix = (
+                        attract_traffic['static_destination_prefix']
+                    )
+                except KeyError:
+                    raise exc.APIException("'attract_traffic/to_rt' specified "
+                                           "with no "
+                                           "'static_destination_prefix'")
+
             if len(self.readvertise_to_rts) != 1:
                 raise exc.APIException("attract_traffic requires exactly one "
                                        "RT to be provided in "
-                                       "readvertise/to_rt")
+                                       "'readvertise/to_rt' and "
+                                       "'attract_traffic/to_rt'")
             self.attract_traffic = True
             self.attract_rts = attract_traffic['redirect_rts']
             try:
