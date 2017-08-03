@@ -23,6 +23,8 @@ from neutron.tests import base
 from networking_bagpipe.agent import bagpipe_linuxbridge_neutron_agent as\
     linuxbridge_agent
 
+from neutron_lib import constants as const
+
 
 class LinuxbridgeAgentExtensionTest(base.BaseTestCase):
 
@@ -32,6 +34,13 @@ class LinuxbridgeAgentExtensionTest(base.BaseTestCase):
         self.context = context.get_admin_context()
         self.connection = mock.Mock()
 
-    def test_initialize_linuxbridge(self):
+    @mock.patch('networking_bagpipe.agent.bagpipe_bgp_agent.BaGPipeBGPAgent')
+    def test_init(self, mocked_bagpipe_bgp_agent):
+        agent_extension_api = mock.Mock()
+
+        self.agent_ext.consume_api(agent_extension_api)
         self.agent_ext.initialize(self.connection,
                                   a_const.EXTENSION_DRIVER_TYPE)
+
+        mocked_bagpipe_bgp_agent.assert_called_once_with(
+            const.AGENT_TYPE_LINUXBRIDGE)

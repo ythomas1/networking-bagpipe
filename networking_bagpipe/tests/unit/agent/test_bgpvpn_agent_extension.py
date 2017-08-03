@@ -51,35 +51,7 @@ class TestOVSAgentExtension(ovs_test_base.OVSOFCtlTestBase):
                                   )
 
         mocked_bagpipe_bgp_agent.assert_called_once_with(
-            const.AGENT_TYPE_OVS,
-            self.connection,
-            int_br=mock.ANY,
-            tun_br=mock.ANY
-            )
+            const.AGENT_TYPE_OVS)
 
-        call_kwargs = mocked_bagpipe_bgp_agent.call_args_list[0][1]
-
-        self.assertIsInstance(call_kwargs['int_br'], ovs_lib.OVSBridge)
-        self.assertIsInstance(call_kwargs['tun_br'], ovs_lib.OVSBridge)
-
-
-class TestLinuxbridgeAgentExtension(base.BaseTestCase):
-
-    def setUp(self):
-        super(TestLinuxbridgeAgentExtension, self).setUp()
-        self.agent_ext = bagpipe_agt_ext.BagpipeBgpvpnAgentExtension()
-        self.connection = mock.Mock()
-
-    @mock.patch('networking_bagpipe.agent.bagpipe_bgp_agent.BaGPipeBGPAgent')
-    def test_init(self, mocked_bagpipe_bgp_agent):
-        agent_extension_api = mock.Mock()
-
-        self.agent_ext.consume_api(agent_extension_api)
-        self.agent_ext.initialize(self.connection,
-                                  lnx_agt_constants.EXTENSION_DRIVER_TYPE,
-                                  )
-
-        mocked_bagpipe_bgp_agent.assert_called_once_with(
-            const.AGENT_TYPE_LINUXBRIDGE,
-            self.connection
-            )
+        self.assertIsInstance(self.agent_ext.int_br, ovs_lib.OVSBridge)
+        self.assertIsInstance(self.agent_ext.tun_br, ovs_lib.OVSBridge)
