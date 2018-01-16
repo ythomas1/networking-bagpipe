@@ -114,11 +114,11 @@ class BagpipeAgentExtension(l2_extension.L2AgentExtension,
         service_info = port_info.network.service_infos
         attach_info = {
             'network_id': port_info.network.id,
-            'ip_address': port_info.ip_address,
-            'mac_address': port_info.mac_address,
             'gateway_ip': port_info.network.gateway_info.ip,
             'local_port': port_info.local_port,
             bbgp_const.EVPN: {
+                'ip_address': port_info.ip_address,
+                'mac_address': port_info.mac_address,
                 'linuxbr': LinuxBridgeManager.get_bridge_name(
                     port_info.network.id
                 ),

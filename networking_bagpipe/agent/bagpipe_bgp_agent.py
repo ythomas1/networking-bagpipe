@@ -254,59 +254,51 @@ class BaGPipeBGPAgent(HTTPClientBase):
                       port_id, service, service_attach_info[service])
 
         attach_list = defaultdict(list)
+
         for vpn_type in VPN_TYPES:
             attach_info = {}
 
             for service in self.build_callbacks.keys():
                 if vpn_type in service_attach_info[service]:
                     network_id = service_attach_info[service]['network_id']
-                    service_info = service_attach_info[service]
+                    gateway_ip = service_attach_info[service]['gateway_ip']
+                    vpn_instance_id = '%s_%s' % (network_id, vpn_type)
+                    local_port = service_attach_info[service]['local_port']
 
-                    if not attach_info:
-                        attach_info = dict(
-                            vpn_instance_id='%s_%s' % (network_id, vpn_type),
-                            ip_address=service_info['ip_address'],
-                            mac_address=service_info['mac_address'],
-                            gateway_ip=service_info['gateway_ip'],
-                            local_port=service_info['local_port']
-                        )
+                    for service_vpn_info in service_attach_info[service][type]:
+                        if vpn_type in attach_list:
+                            for index, info in enumerate(attach_info[vpn_type]):
+                                if (service_vpn_info['ip_address'] ==
+                                        info['ip_address']):
+                                    attach_info = attach_list[vpn_type][index]
 
-                    service_vpn_info = service_info[vpn_type]
-
-                    if vpn_type not in attach_info:
-                        attach_info.update(dict(vpn_type=vpn_type))
-
-                    attach_info['local_port'].update(
-                        service_vpn_info.pop('local_port', {})
-                    )
-
-                    self._check_evpn2ipvpn_info(vpn_type, network_id,
-                                                attach_list, attach_info)
-
-                    # Check if static routes
-                    static_routes = service_vpn_info.pop('static_routes', [])
-                    if static_routes:
-                        static_info = deepcopy(attach_info)
-                        static_info.update({'advertise_subnet': True})
-                        for static_route in static_routes:
-                            static_info['ip_address'] = static_route
-                            static_info.update(service_vpn_info)
-
-                            attach_list[vpn_type].append(static_info)
-
-                    for rt_type in bbgp_const.RT_TYPES:
-                        if rt_type in service_vpn_info:
-                            if rt_type not in attach_info:
-                                attach_info[rt_type] = []
-
-                            attach_info[rt_type] += (
-                                service_vpn_info.pop(rt_type)
+                        if not attach_info:
+                            attach_info = dict(
+                                vpn_instance_id=vpn_instance_id,
+                                vpn_type=vpn_type,
+                                ip_address=service_vpn_info['ip_address'],
+                                mac_address=service_vpn_info['mac_address'],
+                                gateway_ip=gateway_ip,
+                                local_port=service_vpn_info.pop('local_port',
+                                                                local_port)
                             )
 
-                    attach_info.update(service_vpn_info)
+                            self._check_evpn2ipvpn_info(vpn_type,
+                                                        network_id,
+                                                        attach_list,
+                                                        attach_info)
 
-            if attach_info:
-                attach_list[vpn_type].append(attach_info)
+                        for rt_type in bbgp_const.RT_TYPES:
+                            if rt_type in service_vpn_info:
+                                if rt_type not in attach_info:
+                                    attach_info[rt_type] = []
+
+                                attach_info[rt_type] += (
+                                    service_vpn_info.pop(rt_type)
+                                )
+
+                        if attach_info:
+                            attach_list[vpn_type].append(attach_info)
 
         return attach_list
 
